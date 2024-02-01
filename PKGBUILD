@@ -4,7 +4,9 @@
 # Maintainer: Dave Higham <pepedog@archlinuxarm.org>
 # Contributer: Jan Alexander Steffens (heftig) <heftig@archlinux.org>
 
-pkgbase=linux-armtix-rpi5
+buildarch=8
+
+pkgbase=linux-armtix-rpi5-16k
 _commit=bddcfe4f56f44c14617ed1012b82e71846cf1501
 _srcname=linux-${_commit}
 _kernelname=${pkgbase#linux}
@@ -13,7 +15,7 @@ pkgver=6.6.14
 pkgrel=1
 pkgdesc='Linux'
 url="https://github.com/raspberrypi/linux"
-arch=(armv7h aarch64)
+arch=(aarch64)
 license=(GPL2)
 makedepends=(
   bc
@@ -21,11 +23,10 @@ makedepends=(
   inetutils
 )
 options=('!strip')
-source_armv7h=('config')
-source_aarch64=('config8')
 source=("linux-$pkgver-${_commit:0:10}.tar.gz::https://github.com/raspberrypi/linux/archive/${_commit}.tar.gz"
         cmdline.txt
         config.txt
+        config8
         0001-Make-proc-cpuinfo-consistent-on-arm64-and-arm.patch
         linux.preset
         archarm.diffconfig
@@ -33,23 +34,18 @@ source=("linux-$pkgver-${_commit:0:10}.tar.gz::https://github.com/raspberrypi/li
 md5sums=('6678d5d6c853e04c11fdc63925c5ba5d'
          '3bab7426d8c8818dda8353da3892a41f'
          '16c484af9f72b9275afcf83a6b8eab36'
+         'da0888d54005074aaebe247985003079'
          'f66a7ea3feb708d398ef57e4da4815e9'
          '86d4a35722b5410e3b29fc92dae15d4b'
          'c8f84694321e249492c80149833671d7')
-md5sums_armv7h=('69113e58cca35d470366316090c24c1c')
-md5sums_aarch64=(SKIP)
 
 # setup vars
-if [[ $CARCH == "armv7h" ]]; then
-  _kernel=kernel7.img KARCH=arm _image=zImage _config=config
-elif [[ $CARCH == "aarch64" ]]; then
-  _kernel=kernel8.img KARCH=arm64 _image=Image _config=config8
-fi
+_kernel=kernel8.img KARCH=arm64 _image=Image _config=config8
 
 prepare() {
   cd "${srcdir}/${_srcname}"
 
-cp ../../logo_linux_clut224.ppm drivers/video/logo/
+  cp ../../logo_linux_clut224.ppm drivers/video/logo/
   # consistent behavior of lscpu on arm/arm64
   patch -p1 -i ../0001-Make-proc-cpuinfo-consistent-on-arm64-and-arm.patch
 
@@ -59,21 +55,11 @@ cp ../../logo_linux_clut224.ppm drivers/video/logo/
 
   if [[ $_regen -eq 1 ]]; then
     # useful on two point releases to keep shit straight
-    echo "Applying custom shit to bcm2711_defconfig"
-    make bcm2711_defconfig
+    echo "Applying custom shit to bcm2712_defconfig"
+    make bcm2712_defconfig
     cat ../archarm.diffconfig >> .config
     make oldconfig
-    if [[ $CARCH == "armv7h" ]]; then
-      # https://archlinuxarm.org/forum/viewtopic.php?f=23&t=16373
-      scripts/config --enable CONFIG_BCM2835_THERMAL
-
-      # re-enable LRU_GEN by default as the intial observation that it was to blame
-      # for triggering OOM was likely a false positive, see:
-      # https://github.com/raspberrypi/linux/issues/5395#issuecomment-1854410361
-      # https://archlinuxarm.org/forum/viewtopic.php?f=23&t=16377
-      scripts/config --enable CONFIG_LRU_GEN_ENABLED
-    fi
-    # bcm2711_defconfig inserts either -v7l or -v8 for CONFIG_LOCALVERSION= so set this to null
+    # bcm2712_defconfig inserts a value for CONFIG_LOCALVERSION= so set this to null
     sed '/^CONFIG_LOCALVERSION=/s,.*$,CONFIG_LOCALVERSION="",' .config >$startdir/newconfig.$_config
     echo "verify that newconfig.$_config is fit for purpose then redefine $_config"
     exit
@@ -91,11 +77,14 @@ cp ../../logo_linux_clut224.ppm drivers/video/logo/
 build() {
   cd "${srcdir}/${_srcname}"
 
+  export KCFLAGS=' -mcpu=cortex-a76'
+  export KCPPFLAGS=' -mcpu=cortex-a76'
+
   make "$_image" modules dtbs
 }
 
 _package() {
-  pkgdesc="Linux kernel and modules (RPi Foundation fork)"
+  pkgdesc="Linux kernel and modules (RPi Foundation fork) with 16k pagesize for bcm2712/RPi5 ONLY"
   depends=(
     coreutils
     firmware-raspberrypi
@@ -113,7 +102,7 @@ _package() {
   conflicts=(
     linux
     linux-rpi
-    linux-rpi-16k
+    linux-armtix-rpi5
     uboot-raspberrypi
   )
   install=${pkgname}.install
@@ -146,6 +135,11 @@ _package() {
     rmdir "${pkgdir}/boot/broadcom"
   fi
 
+  # remove unneeded dtb files since this package is only for RPi5
+  for i in bcm2837 bcm2711 bcm2710; do
+    rm "${pkgdir}/boot/$i"*.dtb
+  done
+
   cp arch/$KARCH/boot/$_image "${pkgdir}/boot/$_kernel"
   cp arch/$KARCH/boot/dts/overlays/README "${pkgdir}/boot/overlays"
   install -m644 ../config.txt "${pkgdir}/boot/config.txt"
@@ -169,7 +163,7 @@ _package() {
 _package-headers() {
   pkgdesc="Headers and scripts for building modules for Linux kernel"
   provides=("linux-headers=${pkgver}")
-  conflicts=('linux-headers' 'linux-rpi-16k-headers')
+  conflicts=('linux-headers' 'linux-rpi-headers' 'linux-armtix-rpi5-headers')
 
   cd ${_srcname}
   local builddir="$pkgdir/usr/lib/modules/$(<version)/build"
