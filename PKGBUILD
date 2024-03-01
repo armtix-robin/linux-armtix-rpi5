@@ -7,11 +7,11 @@
 buildarch=8
 
 pkgbase=linux-armtix-rpi5-16k
-_commit=bddcfe4f56f44c14617ed1012b82e71846cf1501
+_commit=aa41065014c753edd2038294adb957f117315c77
 _srcname=linux-${_commit}
 _kernelname=${pkgbase#linux}
 _regen=
-pkgver=6.6.14
+pkgver=6.6.18
 pkgrel=1
 pkgdesc='Linux'
 url="https://github.com/raspberrypi/linux"
@@ -31,11 +31,11 @@ source=("linux-$pkgver-${_commit:0:10}.tar.gz::https://github.com/raspberrypi/li
         linux.preset
         archarm.diffconfig
 )
-md5sums=('6678d5d6c853e04c11fdc63925c5ba5d'
+md5sums=('73b1701d7f2a47028ff01543995e8dea'
          '3bab7426d8c8818dda8353da3892a41f'
          '16c484af9f72b9275afcf83a6b8eab36'
-         'da0888d54005074aaebe247985003079'
-         'f66a7ea3feb708d398ef57e4da4815e9'
+         '88f7e25c6072b0b8b1ef421ae05ffe31'
+         'a157c5bfc0f03d0728c92bd953b06265'
          '86d4a35722b5410e3b29fc92dae15d4b'
          'c8f84694321e249492c80149833671d7')
 
